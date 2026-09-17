@@ -24,11 +24,14 @@ jobs:
 
       - name: Build APK
         run: |
-          cd project
-          chmod +x gradlew
-          ./gradlew assembleDebug
+          PROJECT_DIR=$(dirname "$(find project -name gradlew -type f -print -quit)")
+cd "$PROJECT_DIR"
+chmod +x gradlew
+./gradlew assembleDebug
+        
+  
 
       - uses: actions/upload-artifact@v4
         with:
           name: EMAS-Widget-APK
-          path: project/app/build/outputs/apk/debug/app-debug.apk
+          path: project/**/app-debug.apk
