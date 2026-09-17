@@ -13,6 +13,8 @@ jobs:
       - name: Extract project
         run: |
           unzip -o EMAS_Widget_CloudBuild.zip -d project
+          echo "=== ZIP CONTENT ==="
+          find project -maxdepth 5 -type f | head -100
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -20,19 +22,9 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.7'
-
-      - name: Find project
-        run: |
-          find project -name settings.gradle -o -name settings.gradle.kts
-
       - name: Build APK
         run: |
-          PROJECT_DIR=$(dirname "$(find project -name settings.gradle -o -name settings.gradle.kts | head -1)")
-          cd "$PROJECT_DIR"
+          cd project
           gradle assembleDebug
 
       - name: Upload APK
