@@ -12,7 +12,7 @@ jobs:
 
       - name: Extract project
         run: |
-          unzip -o EMAS_Widget_CloudBuild.zip -d project
+          unzip -o EMAS_Widget_V3.zip -d project
           echo "=== ZIP CONTENT ==="
           find project -maxdepth 5 -type f | head -100
 
