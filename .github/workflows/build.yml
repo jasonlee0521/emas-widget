@@ -12,26 +12,30 @@ jobs:
 
       - name: Extract project
         run: |
+          mkdir -p project
           unzip -o EMAS_Widget_CloudBuild.zip -d project
-          if [ -d project/EMAS_Widget_CloudBuild ]; then
-            mv project/EMAS_Widget_CloudBuild/* project/
-          fi
 
-      - uses: actions/setup-java@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
+      - name: Find Gradle project
+        run: |
+          echo "Searching for gradlew..."
+          find project -name gradlew -type f
+          PROJECT_DIR=$(dirname "$(find project -name gradlew -type f -print -quit)")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
+
       - name: Build APK
         run: |
-          PROJECT_DIR=$(dirname "$(find project -name gradlew -type f -print -quit)")
-cd "$PROJECT_DIR"
-chmod +x gradlew
-./gradlew assembleDebug
-        
-  
+          cd "$PROJECT_DIR"
+          chmod +x gradlew
+          ./gradlew assembleDebug
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: EMAS-Widget-APK
           path: project/**/app-debug.apk
