@@ -1,0 +1,36 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract project
+        run: |
+          unzip -o EMAS_Widget_CloudBuild.zip -d project
+          if [ -d project/EMAS_Widget_CloudBuild ]; then
+            mv project/EMAS_Widget_CloudBuild/* project/
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Build APK
+        run: |
+          cd project
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EMAS-Widget-APK
+          path: project/app/build/outputs/apk/debug/app-debug.apk
