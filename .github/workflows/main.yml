@@ -2,9 +2,6 @@ name: Build e.MAS Widget APK
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 jobs:
   build:
@@ -14,20 +11,201 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
+      - name: Create Android project
+        shell: bash
+        run: |
+          mkdir -p app/src/main/java/com/emas/widget
+          mkdir -p app/src/main/res/xml
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/drawable
 
-      - name: Make gradlew executable
-        run: chmod +x gradlew
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          rootProject.name = "EMASWidget"
+          include(":app")
+          EOF
+
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.6.1' apply false
+          }
+          EOF
+
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          EOF
+
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.emas.widget'
+              compileSdk 35
+
+              defaultConfig {
+                  applicationId 'com.emas.widget'
+                  minSdk 23
+                  targetSdk 35
+                  versionCode 1
+                  versionName "1.0"
+              }
+          }
+          EOF
+
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <application
+                  android:theme="@android:style/Theme.Material.Light.NoActionBar"
+                  android:label="e.MAS Widget"
+                  android:icon="@android:drawable/ic_menu_compass">
+
+                  <receiver
+                      android:name=".EmasWidgetProvider"
+                      android:exported="true">
+
+                      <intent-filter>
+                          <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+                      </intent-filter>
+
+                      <meta-data
+                          android:name="android.appwidget.provider"
+                          android:resource="@xml/emas_widget_info"/>
+                  </receiver>
+
+              </application>
+
+          </manifest>
+          EOF
+
+          cat > app/src/main/res/xml/emas_widget_info.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <appwidget-provider
+              xmlns:android="http://schemas.android.com/apk/res/android"
+              android:minWidth="250dp"
+              android:minHeight="110dp"
+              android:updatePeriodMillis="0"
+              android:initialLayout="@layout/emas_widget"
+              android:resizeMode="horizontal|vertical"
+              android:widgetCategory="home_screen"/>
+          EOF
+
+          cat > app/src/main/res/layout/emas_widget.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout
+              xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:orientation="vertical"
+              android:padding="10dp"
+              android:background="#111111">
+
+              <TextView
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:text="e.MAS"
+                  android:textColor="#FFFFFF"
+                  android:textSize="20sp"
+                  android:textStyle="bold"/>
+
+              <Button
+                  android:id="@+id/emas_button"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:layout_marginTop="8dp"
+                  android:text="打开 e.MAS"
+                  android:textAllCaps="false"/>
+
+          </LinearLayout>
+          EOF
+
+          cat > app/src/main/java/com/emas/widget/EmasWidgetProvider.java <<'EOF'
+          package com.emas.widget;
+
+          import android.app.PendingIntent;
+          import android.appwidget.AppWidgetManager;
+          import android.appwidget.AppWidgetProvider;
+          import android.content.ComponentName;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.pm.PackageManager;
+          import android.widget.RemoteViews;
+
+          public class EmasWidgetProvider extends AppWidgetProvider {
+
+              private static final String EMAS_PACKAGE = "com.proton.emas";
+
+              @Override
+              public void onUpdate(Context context,
+                                    AppWidgetManager manager,
+                                    int[] ids) {
+
+                  for (int id : ids) {
+                      updateWidget(context, manager, id);
+                  }
+              }
+
+              private static void updateWidget(
+                      Context context,
+                      AppWidgetManager manager,
+                      int id) {
+
+                  RemoteViews views =
+                          new RemoteViews(context.getPackageName(),
+                                  com.emas.widget.R.layout.emas_widget);
+
+                  Intent launchIntent =
+                          context.getPackageManager()
+                                  .getLaunchIntentForPackage(EMAS_PACKAGE);
+
+                  if (launchIntent != null) {
+                      launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+                      PendingIntent pendingIntent =
+                              PendingIntent.getActivity(
+                                      context,
+                                      100,
+                                      launchIntent,
+                                      PendingIntent.FLAG_UPDATE_CURRENT |
+                                      PendingIntent.FLAG_IMMUTABLE);
+
+                      views.setOnClickPendingIntent(
+                              com.emas.widget.R.id.emas_button,
+                              pendingIntent);
+                  }
+
+                  manager.updateAppWidget(id, views);
+              }
+          }
+          EOF
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Build APK
-        run: ./gradlew assembleDebug --no-daemon
+        run: |
+          gradle assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Proton-eMAS-Widget-APK
-          path: app/build/outputs/apk/debug/*.apk
+          name: EMAS-Widget-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
